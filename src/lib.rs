@@ -138,6 +138,13 @@ impl<R: Read, W: Write> PomodoroSession<R, W> {
         self.display_menu(Some(POMODORO_START_PROMPT));
     }
 
+    fn reset_window_size(&mut self) {
+        let new_size = termion::terminal_size().expect("Failed to get window size");
+        self.width = new_size.0;
+        self.height = new_size.1;
+        println!("{}", termion::clear::All);
+    }
+
     fn begin_cycle(&mut self) {
         self.start_work();
         self.display_menu(None);
@@ -152,6 +159,7 @@ impl<R: Read, W: Write> PomodoroSession<R, W> {
 
     /// Reset the current pomodoro by decrementing the cycle and re-running start_work.
     pub fn reset_current_pomodoro(&mut self) {
+        self.reset_window_size();
         self.pomodoro_tracker.decrement_cycle();
         self.start_work();
     }
