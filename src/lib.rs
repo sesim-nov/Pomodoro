@@ -142,7 +142,7 @@ impl<R: Read, W: Write> PomodoroSession<R, W> {
         let new_size = termion::terminal_size().expect("Failed to get window size");
         self.width = new_size.0;
         self.height = new_size.1;
-        println!("{}", termion::clear::All);
+        self.clear_screen();
     }
 
     fn begin_cycle(&mut self) {
@@ -300,6 +300,11 @@ impl<R: Read, W: Write> PomodoroSession<R, W> {
     /**
      * CLOCK AND DRAWING METHODS
      */
+
+    /// Clears the entire screen
+    pub fn clear_screen(&self) {
+        println!("{}", termion::clear::All);
+    }
 
     /// Draws the work clock on the screen.
     pub fn draw_work_screen(&mut self) {
