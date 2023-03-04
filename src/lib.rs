@@ -50,8 +50,11 @@
 #[macro_use]
 extern crate structopt;
 
+use signal_hook;
 use std::io;
 use std::io::{Read, Write};
+use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
@@ -130,6 +133,7 @@ pub struct PomodoroSession<R, W> {
     pomodoro_tracker: StateTracker,
     clock: Clock,
     config: PomodoroConfig,
+    winch_flag: Arc<AtomicBool>,
 }
 
 impl<R: Read, W: Write> PomodoroSession<R, W> {
@@ -608,6 +612,8 @@ fn init(width: u16, height: u16, config: PomodoroConfig) {
     let stdout = io::stdout();
     let mut stdout = stdout.lock().into_raw_mode().unwrap();
     let stdin = termion::async_stdin();
+    let winch_flag = Arc::new(AtomicBool::new(false));
+    signal_hook::flag::register(signal_hook::consts::SIGWINCH, Arc::clone(&winch_flag)).expect("Failed to set signal listener");
 
     write!(stdout, "{}{}", clear::All, cursor::Goto(1, 1)).unwrap();
     stdout.flush().unwrap();
@@ -620,6 +626,7 @@ fn init(width: u16, height: u16, config: PomodoroConfig) {
         pomodoro_tracker: StateTracker::new(),
         clock: Clock::new(),
         config,
+        winch_flag,
     };
 
     write!(
