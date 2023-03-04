@@ -54,7 +54,7 @@ use signal_hook;
 use std::io;
 use std::io::{Read, Write};
 use std::sync::Arc;
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
@@ -142,6 +142,13 @@ impl<R: Read, W: Write> PomodoroSession<R, W> {
         self.display_menu(Some(POMODORO_START_PROMPT));
     }
 
+    fn check_winch_flag(&mut self) {
+        if self.winch_flag.load(Ordering::Relaxed) {
+            self.reset_window_size();
+            self.winch_flag.store(false, Ordering::Relaxed);
+        }
+    }
+
     fn reset_window_size(&mut self) {
         let new_size = termion::terminal_size().expect("Failed to get window size");
         self.width = new_size.0;
@@ -186,6 +193,9 @@ impl<R: Read, W: Write> PomodoroSession<R, W> {
     /// Countdown count for work - with syncing so we are never more than a ms off from true time.
     pub fn countdown_work(&mut self) {
         loop {
+            // Check for changes to the window size
+            self.check_winch_flag();
+
             let true_elapsed: u64 = (self
                 .pomodoro_tracker
                 .started_at
@@ -260,6 +270,9 @@ impl<R: Read, W: Write> PomodoroSession<R, W> {
     /// notifications after the loops are different.  Good place for a refactor.
     pub fn countdown_break(&mut self, duration: u64) {
         loop {
+            // Check winch flag
+            self.check_winch_flag();
+
             let true_elapsed: u64 = (self
                 .pomodoro_tracker
                 .started_at
