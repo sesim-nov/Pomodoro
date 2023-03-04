@@ -170,7 +170,6 @@ impl<R: Read, W: Write> PomodoroSession<R, W> {
 
     /// Reset the current pomodoro by decrementing the cycle and re-running start_work.
     pub fn reset_current_pomodoro(&mut self) {
-        self.reset_window_size();
         self.pomodoro_tracker.decrement_cycle();
         self.start_work();
     }
