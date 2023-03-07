@@ -50,8 +50,11 @@
 #[macro_use]
 extern crate structopt;
 
+use signal_hook;
 use std::io;
 use std::io::{Read, Write};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
@@ -130,12 +133,27 @@ pub struct PomodoroSession<R, W> {
     pomodoro_tracker: StateTracker,
     clock: Clock,
     config: PomodoroConfig,
+    winch_flag: Arc<AtomicBool>,
 }
 
 impl<R: Read, W: Write> PomodoroSession<R, W> {
     fn start(&mut self) {
         write!(self.stdout, "{}", cursor::Hide).unwrap();
         self.display_menu(Some(POMODORO_START_PROMPT));
+    }
+
+    fn check_winch_flag(&mut self) {
+        if self.winch_flag.load(Ordering::Relaxed) {
+            self.reset_window_size();
+            self.winch_flag.store(false, Ordering::Relaxed);
+        }
+    }
+
+    fn reset_window_size(&mut self) {
+        let new_size = termion::terminal_size().expect("Failed to get window size");
+        self.width = new_size.0;
+        self.height = new_size.1;
+        self.clear_screen();
     }
 
     fn begin_cycle(&mut self) {
@@ -174,6 +192,9 @@ impl<R: Read, W: Write> PomodoroSession<R, W> {
     /// Countdown count for work - with syncing so we are never more than a ms off from true time.
     pub fn countdown_work(&mut self) {
         loop {
+            // Check for changes to the window size
+            self.check_winch_flag();
+
             let true_elapsed: u64 = (self
                 .pomodoro_tracker
                 .started_at
@@ -248,6 +269,9 @@ impl<R: Read, W: Write> PomodoroSession<R, W> {
     /// notifications after the loops are different.  Good place for a refactor.
     pub fn countdown_break(&mut self, duration: u64) {
         loop {
+            // Check winch flag
+            self.check_winch_flag();
+
             let true_elapsed: u64 = (self
                 .pomodoro_tracker
                 .started_at
@@ -292,6 +316,11 @@ impl<R: Read, W: Write> PomodoroSession<R, W> {
     /**
      * CLOCK AND DRAWING METHODS
      */
+
+    /// Clears the entire screen
+    pub fn clear_screen(&self) {
+        println!("{}", termion::clear::All);
+    }
 
     /// Draws the work clock on the screen.
     pub fn draw_work_screen(&mut self) {
@@ -595,6 +624,8 @@ fn init(width: u16, height: u16, config: PomodoroConfig) {
     let stdout = io::stdout();
     let mut stdout = stdout.lock().into_raw_mode().unwrap();
     let stdin = termion::async_stdin();
+    let winch_flag = Arc::new(AtomicBool::new(false));
+    signal_hook::flag::register(signal_hook::consts::SIGWINCH, Arc::clone(&winch_flag)).expect("Failed to set signal listener");
 
     write!(stdout, "{}{}", clear::All, cursor::Goto(1, 1)).unwrap();
     stdout.flush().unwrap();
@@ -607,6 +638,7 @@ fn init(width: u16, height: u16, config: PomodoroConfig) {
         pomodoro_tracker: StateTracker::new(),
         clock: Clock::new(),
         config,
+        winch_flag,
     };
 
     write!(
