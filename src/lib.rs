@@ -245,6 +245,7 @@ impl<R: Read, W: Write> PomodoroSession<R, W> {
     /// Starts a break by matching which break state we are in (short or long) and then running the
     /// appropriate break function.
     pub fn start_break(&mut self) {
+        self.ring_bell();
         match self.pomodoro_tracker.current_state {
             PomodoroState::ShortBreak => self.short_break(),
             PomodoroState::LongBreak => self.long_break(),
@@ -427,6 +428,8 @@ impl<R: Read, W: Write> PomodoroSession<R, W> {
         } else {
             POMODORO_MENU
         };
+
+        self.ring_bell();
 
         let last_i = self.draw_centered(menu, None);
 
