@@ -177,6 +177,7 @@ impl<R: Read, W: Write> PomodoroSession<R, W> {
     /// Checks the pomodoro state (Working, ShortBreak, or LongBreak) and runs the appropraite
     /// internal countdown method.
     pub fn countdown(&mut self) {
+        self.ring_bell();
         match self.pomodoro_tracker.current_state {
             PomodoroState::Working => self.countdown_work(),
             PomodoroState::ShortBreak => {
@@ -320,6 +321,10 @@ impl<R: Read, W: Write> PomodoroSession<R, W> {
     /// Clears the entire screen
     pub fn clear_screen(&self) {
         println!("{}", termion::clear::All);
+    }
+
+    pub fn ring_bell(&self) {
+        print!("\x07");
     }
 
     /// Draws the work clock on the screen.
